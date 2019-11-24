@@ -55,71 +55,6 @@ namespace aprsparser
         /// </summary>
         /// <param name="packet"></param>
         /// <returns>Returns true if successful, false otherwise</returns>
-        [Obsolete("This method proved to be too slow when processing the live APRS feed.")]
-        public bool ParseRegEx(string packet)
-        {
-            try
-            {
-                //split packet into basic components of:
-                // from callsign
-                // destination callsign
-                // digis
-                // packet type
-                // packet payload
-                Position.Clear();
-                RawPacket = packet;
-                DataType = PacketDataType.Unknown;
-                if (_regexAprsPacket.IsMatch(packet))
-                {
-                    var m = _regexAprsPacket.Match(packet);
-                    var g = m.Groups;
-                    if (g.Count >= 5)
-                    {
-                        var idx = 0;
-                        RawPacket = g[idx++].Value;
-                        SourceCallsign = new Callsign(g[idx++].Value);
-                        DestCallsign = new Callsign(g[idx++].Value);
-                        //if less than 6 groups no digis
-                        Digis = g.Count < 6 ? string.Empty : g[idx++].Value;
-                        DataTypeCh = g[idx++].Value[0];
-                        DataType = AprsDataType.GetDataType(DataTypeCh);
-                        InformationField = g[idx].Value;
-                        SourcePathHeader = SourceCallsign.StationCallsign + '>' + DestCallsign.StationCallsign;
-                        if (!string.IsNullOrEmpty(Digis))
-                        {
-                            SourcePathHeader += "," + Digis;
-                        }
-
-                        //parse information field
-                        if (InformationField.Length > 0)
-                            ParseInformationField();
-                        else
-                            DataType = PacketDataType.Beacon;
-
-                        //compute gridsquare if not given
-                        if (Position.IsValid() && string.IsNullOrEmpty(Position.Gridsquare))
-                        {
-                            Position.Gridsquare = AprsUtil.LatLonToGridSquare(Position.CoordinateSet);
-                        }
-
-                        return true;
-                    }
-                }
-                return false;
-            }
-            catch (Exception ex)
-            {
-                RaiseParseErrorEvent(packet, ex.Message);
-                return false;
-            }
-        }
-
-
-        /// <summary>
-        /// Parses the raw packet into it's basic components
-        /// </summary>
-        /// <param name="packet"></param>
-        /// <returns>Returns true if successful, false otherwise</returns>
         public bool Parse(string packet)
         {
             try
@@ -196,6 +131,69 @@ namespace aprsparser
             }
         }
 
+        /// <summary>
+        /// Parses the raw packet into it's basic components
+        /// </summary>
+        /// <param name="packet"></param>
+        /// <returns>Returns true if successful, false otherwise</returns>
+        [Obsolete("This method proved to be too slow when processing the live APRS feed.")]
+        public bool ParseRegEx(string packet)
+        {
+            try
+            {
+                //split packet into basic components of:
+                // from callsign
+                // destination callsign
+                // digis
+                // packet type
+                // packet payload
+                Position.Clear();
+                RawPacket = packet;
+                DataType = PacketDataType.Unknown;
+                if (_regexAprsPacket.IsMatch(packet))
+                {
+                    var m = _regexAprsPacket.Match(packet);
+                    var g = m.Groups;
+                    if (g.Count >= 5)
+                    {
+                        var idx = 0;
+                        RawPacket = g[idx++].Value;
+                        SourceCallsign = new Callsign(g[idx++].Value);
+                        DestCallsign = new Callsign(g[idx++].Value);
+                        //if less than 6 groups no digis
+                        Digis = g.Count < 6 ? string.Empty : g[idx++].Value;
+                        DataTypeCh = g[idx++].Value[0];
+                        DataType = AprsDataType.GetDataType(DataTypeCh);
+                        InformationField = g[idx].Value;
+                        SourcePathHeader = SourceCallsign.StationCallsign + '>' + DestCallsign.StationCallsign;
+                        if (!string.IsNullOrEmpty(Digis))
+                        {
+                            SourcePathHeader += "," + Digis;
+                        }
+
+                        //parse information field
+                        if (InformationField.Length > 0)
+                            ParseInformationField();
+                        else
+                            DataType = PacketDataType.Beacon;
+
+                        //compute gridsquare if not given
+                        if (Position.IsValid() && string.IsNullOrEmpty(Position.Gridsquare))
+                        {
+                            Position.Gridsquare = AprsUtil.LatLonToGridSquare(Position.CoordinateSet);
+                        }
+
+                        return true;
+                    }
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                RaiseParseErrorEvent(packet, ex.Message);
+                return false;
+            }
+        }
         private void ParseDateTime(string str)
         {
             try
@@ -397,135 +395,17 @@ namespace aprsparser
             MessageData.MsgText = s;
         }
 
-        private void ParsePosition()
-        {
-            //after parsing position and symbol from the information field 
-            //all that can be left is a comment
-            Comment = ParsePositionAndSymbol(InformationField);
-        }
-
-        private void ParsePositionTime()
-        {
-            //InformationField
-            ParseDateTime(InformationField.Substring(0, 7));
-            string psr = InformationField.Substring(7);
-
-
-            //after parsing position and symbol from the information field 
-            //all that can be left is a comment
-            Comment = ParsePositionAndSymbol(psr);
-
-            //ignoring weather data "_" for now
-        }
-
-        private string ParsePositionAndSymbol(string ps)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(ps))
-                {
-                    //not valid
-                    Position.Clear();
-                    return string.Empty;
-                }
-
-                //compressed format if the first character is not a digit
-                if (!Char.IsDigit(ps[0]))
-                {
-                    //compressed position data (13)
-                    if (ps.Length < 13)
-                    {
-                        //not valid
-                        Position.Clear();
-                        return string.Empty;
-                    }
-                    string pd = ps.Substring(0, 13);
-
-                    SymbolTableIdentifier = pd[0];
-                    //since compressed format never starts with a digit, to represent a
-                    //digit as the overlay character a letter (a..j) is used instead
-                    if ("abcdefghij".ToCharArray().Contains(SymbolTableIdentifier))
-                    {
-                        //convert to digit (0..9)
-                        int sti = SymbolTableIdentifier - 'a' + '0';
-                        SymbolTableIdentifier = (Char)sti;
-                    }
-                    SymbolCode = pd[9];
-
-                    const int sqr91 = 91 * 91;
-                    const int cube91 = 91 * 91 * 91;
-
-                    //lat
-                    string sLat = pd.Substring(1, 4);
-                    double dLat = 90 - (
-                        (sLat[0] - 33) * cube91 +
-                        (sLat[1] - 33) * sqr91 +
-                        (sLat[2] - 33) * 91 +
-                        (sLat[3] - 33)
-                        ) / 380926.0;
-                    Position.CoordinateSet.Latitude = new Coordinate(dLat, true);
-
-                    //lon
-                    string sLon = pd.Substring(5, 4);
-                    double dLon = -180 + (
-                        (sLon[0] - 33) * cube91 +
-                        (sLon[1] - 33) * sqr91 +
-                        (sLon[2] - 33) * 91 +
-                        (sLon[3] - 33)
-                        ) / 190463.0;
-                    Position.CoordinateSet.Longitude = new Coordinate(dLon, false);
-
-                    //strip off position report and return remainder of string
-                    ps = ps.Substring(13);
-                }
-                else
-                {
-                    if (ps.Length < 19)
-                    {
-                        //not valid
-                        Position.Clear();
-                        return string.Empty;
-                    }
-
-                    //normal (uncompressed)
-                    string pd = ps.Substring(0, 19); //position data
-                    string sLat = pd.Substring(0, 8); //latitude
-                    SymbolTableIdentifier = pd[8];
-                    string sLon = pd.Substring(9, 9); //longitude
-                    SymbolCode = pd[18];
-
-                    Position.CoordinateSet.Latitude = new Coordinate(sLat);
-                    Position.CoordinateSet.Longitude = new Coordinate(sLon);
-
-                    //check for valid lat/lon values
-                    if (Position.CoordinateSet.Latitude.Value < -90 || Position.CoordinateSet.Latitude.Value > 90 ||
-                       Position.CoordinateSet.Longitude.Value < -180 || Position.CoordinateSet.Longitude.Value > 180)
-                    {
-                        Position.Clear();
-                    }
-
-                    //strip off position report and return remainder of string
-                    ps = ps.Substring(19);
-                }
-                return ps;
-            }
-            catch (Exception)
-            {
-                return InformationField;
-            }
-        }
-
-        private char ConvertDest(char ch)
-        {
-            int c = ch - 0x30; //adjust all to be 0 based
-            if (c == 0x1C) c = 0x0A; //change L to be a space digit
-            if ((c > 0x10) && (c <= 0x1B)) c = c - 1; //A-K need to be decremented
-            if ((c & 0x0F) == 0x0A) c = c & 0xF0; //space is converted to 0 - we don't support ambiguity
-            return (char)c;
-        }
-
         private void ParseMicE()
         {
+            char ConvertDest(char ch)
+            {
+                int ci = ch - 0x30; //adjust all to be 0 based
+                if (ci == 0x1C) ci = 0x0A; //change L to be a space digit
+                if ((ci > 0x10) && (ci <= 0x1B)) ci = ci - 1; //A-K need to be decremented
+                if ((ci & 0x0F) == 0x0A) ci = ci & 0xF0; //space is converted to 0 - we don't support ambiguity
+                return (char)ci;
+            }
+            
             string dest = DestCallsign.StationCallsign;
             if (dest.Length < 6 || dest.Length == 7) return;
 
@@ -641,5 +521,122 @@ namespace aprsparser
             }
         }
 
+        private void ParsePosition()
+        {
+            //after parsing position and symbol from the information field 
+            //all that can be left is a comment
+            Comment = ParsePositionAndSymbol(InformationField);
+        }
+
+        private string ParsePositionAndSymbol(string ps)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(ps))
+                {
+                    //not valid
+                    Position.Clear();
+                    return string.Empty;
+                }
+
+                //compressed format if the first character is not a digit
+                if (!Char.IsDigit(ps[0]))
+                {
+                    //compressed position data (13)
+                    if (ps.Length < 13)
+                    {
+                        //not valid
+                        Position.Clear();
+                        return string.Empty;
+                    }
+                    string pd = ps.Substring(0, 13);
+
+                    SymbolTableIdentifier = pd[0];
+                    //since compressed format never starts with a digit, to represent a
+                    //digit as the overlay character a letter (a..j) is used instead
+                    if ("abcdefghij".ToCharArray().Contains(SymbolTableIdentifier))
+                    {
+                        //convert to digit (0..9)
+                        int sti = SymbolTableIdentifier - 'a' + '0';
+                        SymbolTableIdentifier = (Char)sti;
+                    }
+                    SymbolCode = pd[9];
+
+                    const int sqr91 = 91 * 91;
+                    const int cube91 = 91 * 91 * 91;
+
+                    //lat
+                    string sLat = pd.Substring(1, 4);
+                    double dLat = 90 - (
+                        (sLat[0] - 33) * cube91 +
+                        (sLat[1] - 33) * sqr91 +
+                        (sLat[2] - 33) * 91 +
+                        (sLat[3] - 33)
+                        ) / 380926.0;
+                    Position.CoordinateSet.Latitude = new Coordinate(dLat, true);
+
+                    //lon
+                    string sLon = pd.Substring(5, 4);
+                    double dLon = -180 + (
+                        (sLon[0] - 33) * cube91 +
+                        (sLon[1] - 33) * sqr91 +
+                        (sLon[2] - 33) * 91 +
+                        (sLon[3] - 33)
+                        ) / 190463.0;
+                    Position.CoordinateSet.Longitude = new Coordinate(dLon, false);
+
+                    //strip off position report and return remainder of string
+                    ps = ps.Substring(13);
+                }
+                else
+                {
+                    if (ps.Length < 19)
+                    {
+                        //not valid
+                        Position.Clear();
+                        return string.Empty;
+                    }
+
+                    //normal (uncompressed)
+                    string pd = ps.Substring(0, 19); //position data
+                    string sLat = pd.Substring(0, 8); //latitude
+                    SymbolTableIdentifier = pd[8];
+                    string sLon = pd.Substring(9, 9); //longitude
+                    SymbolCode = pd[18];
+
+                    Position.CoordinateSet.Latitude = new Coordinate(sLat);
+                    Position.CoordinateSet.Longitude = new Coordinate(sLon);
+
+                    //check for valid lat/lon values
+                    if (Position.CoordinateSet.Latitude.Value < -90 || Position.CoordinateSet.Latitude.Value > 90 ||
+                       Position.CoordinateSet.Longitude.Value < -180 || Position.CoordinateSet.Longitude.Value > 180)
+                    {
+                        Position.Clear();
+                    }
+
+                    //strip off position report and return remainder of string
+                    ps = ps.Substring(19);
+                }
+                return ps;
+            }
+            catch (Exception)
+            {
+                return InformationField;
+            }
+        }
+
+        private void ParsePositionTime()
+        {
+            //InformationField
+            ParseDateTime(InformationField.Substring(0, 7));
+            string psr = InformationField.Substring(7);
+
+
+            //after parsing position and symbol from the information field 
+            //all that can be left is a comment
+            Comment = ParsePositionAndSymbol(psr);
+
+            //ignoring weather data "_" for now
+        }
     }
 }
