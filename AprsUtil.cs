@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using Microsoft.VisualBasic;
 
-namespace winlink.aprs
+namespace aprsparser
 {
     public static class AprsUtil
     {

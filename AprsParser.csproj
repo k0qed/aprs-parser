@@ -8,7 +8,7 @@
     <ProjectGuid>{86F8DC5D-E501-4DB3-BEDB-4044DCBF952A}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>winlink.aprs</RootNamespace>
+    <RootNamespace>aprsparser</RootNamespace>
     <AssemblyName>AprsParser</AssemblyName>
     <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
@@ -60,12 +60,10 @@
     <Compile Include="Callsign.cs" />
     <Compile Include="AprsPacket.cs" />
     <Compile Include="MessageData.cs" />
-    <Compile Include="ParseDateTime.cs" />
     <Compile Include="CoordinateSet.cs" />
     <Compile Include="Position.cs" />
     <Compile Include="PacketDataType.cs" />
     <Compile Include="ParseErrorEventArgs.cs" />
-    <Compile Include="ParseInformationField.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ClientSocket.cs" />
     <Compile Include="SmartBeaconing.cs" />

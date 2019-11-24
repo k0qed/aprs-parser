@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace winlink.aprs
+namespace aprsparser
 {
     // ReSharper disable InconsistentNaming
     public enum PacketDataType

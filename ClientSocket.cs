@@ -2,7 +2,7 @@
 using System.Diagnostics;
 using System.Net.Sockets;
 
-namespace winlink.aprs
+namespace aprsparser
 {
     public class ClientSocket
     {

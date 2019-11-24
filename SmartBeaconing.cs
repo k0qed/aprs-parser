@@ -1,7 +1,7 @@
 ﻿using System;
 using NLog;
 
-namespace winlink.aprs
+namespace aprsparser
 {
     public class SmartBeaconing
     {

@@ -1,5 +1,4 @@
-﻿
-namespace winlink.aprs
+﻿namespace aprsparser
 {
     public class Coordinate
     {

@@ -1,4 +1,4 @@
-﻿namespace winlink.aprs
+﻿namespace aprsparser
 {
     public class Position
     {
